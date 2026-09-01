@@ -1,7 +1,7 @@
 from django.shortcuts import render
 from django.http import HttpResponse
 
-def home(request):
+def home_portal(request):
     html_content = """<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -65,3 +65,6 @@ def home(request):
 </body>
 </html>"""
     return HttpResponse(html_content, content_type="text/html")
+
+def student_report_card(request, student_id=None):
+    return HttpResponse("<h2>Report Card Details</h2><p>Student report card generator ready.</p>", content_type="text/html")
