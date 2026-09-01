@@ -1,5 +1,7 @@
-from django.shortcuts import render, get_object_or_404
-from .models import Student, SchoolBranding
+from django.shortcuts import render
+
+def home(request):
+    return render(request, 'home.html')  # ✅ Renders visual web page
 
 def home_portal(request):
     students = Student.objects.all()
