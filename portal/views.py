@@ -27,10 +27,10 @@ def home_portal(request):
         .utility-bar { background: #1b1e21; color: #d1d5db; font-size: 12px; padding: 6px 40px; display: flex; justify-content: space-between; align-items: center; }
         .utility-bar span { font-weight: 700; color: #fff; }
 
-        /* UCM Header */
-        .ucm-header { background: var(--uds-green); color: white; padding: 18px 40px; display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid var(--uds-gold); box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        /* Header */
+        .ucm-header { background: var(--uds-green); color: white; padding: 18px 40px; display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid var(--uds-gold); box-shadow: 0 4px 10px rgba(0,0,0,0.1); transition: background 0.3s; }
         .brand { display: flex; align-items: center; gap: 16px; }
-        .brand img { height: 58px; width: 58px; background: white; border-radius: 50%; padding: 4px; }
+        .brand img { height: 58px; width: 58px; background: white; border-radius: 50%; padding: 4px; object-fit: contain; }
         .brand-text h1 { font-size: 22px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
         .brand-text p { font-size: 13px; opacity: 0.9; }
 
@@ -52,22 +52,25 @@ def home_portal(request):
         .btn-submit:hover { background: var(--uds-green-dark); }
         .error-msg { color: #dc2626; font-size: 12px; font-weight: 600; text-align: center; margin-top: 10px; display: none; }
 
-        /* Modal for Password Reset */
+        /* Modals */
         .modal-bg { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 1000; justify-content: center; align-items: center; }
-        .modal-box { background: white; padding: 30px; border-radius: 8px; max-width: 400px; width: 90%; border-top: 6px solid var(--uds-gold); }
+        .modal-box { background: white; padding: 30px; border-radius: 8px; max-width: 420px; width: 90%; border-top: 6px solid var(--uds-gold); }
 
-        /* Main Portal Dashboard (Hidden until login) */
+        /* Main Portal Dashboard */
         #portal-dashboard { display: none; }
 
         .role-nav { background: white; border-bottom: 2px solid var(--border-color); padding: 0 40px; display: flex; gap: 10px; }
-        .role-tab { padding: 14px 24px; text-decoration: none; color: var(--text-muted); font-size: 14px; font-weight: 700; border-bottom: 3px solid transparent; cursor: pointer; }
-        .role-tab.active { color: var(--uds-green); border-bottom-color: var(--uds-green); background: #f8fafc; }
+        .role-tab { padding: 14px 24px; text-decoration: none; color: var(--text-muted); font-size: 14px; font-weight: 700; border-bottom: 3px solid transparent; cursor: pointer; display: none; }
+        .role-tab.active { color: var(--uds-green); border-bottom-color: var(--uds-green); background: #f8fafc; display: block !important; }
 
         .portal-container { max-width: 1240px; margin: 25px auto; padding: 0 20px; }
         .portal-panel { display: none; }
         .portal-panel.active { display: block; }
 
-        /* Profile Header Box */
+        /* System Banner */
+        .banner-alert { background: #e6f4ea; border-left: 5px solid var(--uds-green); color: #137333; padding: 14px 20px; border-radius: 4px; margin-bottom: 20px; font-size: 13px; font-weight: 600; display: flex; justify-content: space-between; align-items: center; }
+
+        /* Profile Card */
         .profile-card { background: white; border: 1px solid var(--border-color); border-radius: 8px; padding: 24px; margin-bottom: 25px; display: flex; align-items: center; gap: 24px; box-shadow: 0 2px 6px rgba(0,0,0,0.03); border-top: 5px solid var(--uds-green); }
         .avatar-box { width: 100px; height: 100px; border-radius: 6px; border: 2px solid var(--uds-green); overflow: hidden; background: #e2e8f0; flex-shrink: 0; }
         .avatar-box img { width: 100%; height: 100%; object-fit: cover; }
@@ -75,20 +78,22 @@ def home_portal(request):
         .profile-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-top: 10px; font-size: 13px; }
         .profile-grid div span { font-weight: 700; color: var(--text-muted); display: block; font-size: 11px; text-transform: uppercase; }
 
-        .module-nav { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); }
-        .module-btn { padding: 10px 18px; background: white; border: 1px solid var(--border-color); border-bottom: none; border-radius: 6px 6px 0 0; font-size: 13px; font-weight: 600; cursor: pointer; color: var(--text-main); }
+        /* Sub Modules Navigation */
+        .module-nav { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); overflow-x: auto; }
+        .module-btn { padding: 10px 18px; background: white; border: 1px solid var(--border-color); border-bottom: none; border-radius: 6px 6px 0 0; font-size: 13px; font-weight: 600; cursor: pointer; color: var(--text-main); white-space: nowrap; }
         .module-btn.active { background: var(--uds-green); color: white; border-color: var(--uds-green); }
 
         .content-box { background: white; border: 1px solid var(--border-color); border-radius: 6px; padding: 24px; box-shadow: 0 2px 6px rgba(0,0,0,0.03); margin-bottom: 25px; }
-        .box-title { font-size: 16px; font-weight: 700; color: var(--uds-green); text-transform: uppercase; margin-bottom: 15px; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; }
+        .box-title { font-size: 16px; font-weight: 700; color: var(--uds-green); text-transform: uppercase; margin-bottom: 15px; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
 
         table.enterprise-table { width: 100%; border-collapse: collapse; text-align: left; }
         table.enterprise-table th { background: var(--uds-green); color: white; font-weight: 600; font-size: 13px; text-transform: uppercase; padding: 12px 16px; }
-        table.enterprise-table td { padding: 14px 16px; font-size: 13px; border-bottom: 1px solid var(--border-color); }
+        table.enterprise-table td { padding: 12px 16px; font-size: 13px; border-bottom: 1px solid var(--border-color); }
         table.enterprise-table tr:nth-child(even) { background-color: #f8fafc; }
 
         .status-badge { padding: 4px 10px; border-radius: 3px; font-size: 11px; font-weight: 700; text-transform: uppercase; background: #e6f4ea; color: #137333; }
         .status-pending { background: #fef7e0; color: #b45309; }
+        .input-sm { padding: 6px 10px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 13px; width: 80px; }
 
         @media print {
             .utility-bar, .ucm-header, .role-nav, .module-nav, .btn-top, #login-overlay { display: none !important; }
@@ -103,33 +108,34 @@ def home_portal(request):
     <!-- Top Utility Bar -->
     <div class="utility-bar">
         <div>AL-WASILAH UCM ENTERPRISE PORTAL</div>
-        <div>Current Session: <span>2026/2027 ACADEMIC YEAR</span></div>
+        <div>Current Session: <span id="sys-session-text">2026/2027 ACADEMIC YEAR - TERM II</span></div>
     </div>
 
-    <!-- Main Header -->
-    <header class="ucm-header">
+    <!-- Header -->
+    <header class="ucm-header" id="header-bar">
         <div class="brand">
-            <img src="/media/branding/WhatsApp_Image_2026-01-02_at_6.23.10_AM-removebg-preview-removebg-preview.png" alt="School Logo">
+            <img id="header-logo-img" src="/media/branding/WhatsApp_Image_2026-01-02_at_6.23.10_AM-removebg-preview-removebg-preview.png" alt="School Logo">
             <div class="brand-text">
-                <h1>Al-Wasilah School Portal</h1>
-                <p>Knowledge for Service &bull; Enterprise Academic Portal</p>
+                <h1 id="header-title-text">Al-Wasilah School Portal</h1>
+                <p id="header-subtitle-text">Knowledge for Service &bull; Enterprise Academic Portal</p>
             </div>
         </div>
-        <div id="header-actions" style="display:none; gap:10px;">
-            <button onclick="window.print()" class="btn-top">🖨️ Print / Download PDF</button>
-            <button onclick="logout()" class="btn-top" style="background:#dc2626; color:white;">🔒 Logout</button>
+        <div id="header-actions" style="display:none; gap:10px; align-items:center;">
+            <span id="active-user-badge" style="font-size:12px; background:rgba(255,255,255,0.2); padding:6px 12px; border-radius:4px; font-weight:600;"></span>
+            <button onclick="window.print()" class="btn-top">🖨️ Print PDF</button>
+            <button onclick="logout()" class="btn-top" style="background:#dc2626; color:white;">🔒 Switch Account / Logout</button>
         </div>
     </header>
 
-    <!-- LOGIN OVERLAY PANEL -->
+    <!-- LOGIN OVERLAY -->
     <div id="login-overlay">
         <div class="login-card">
-            <h2>UCM Enterprise Login</h2>
-            <p class="subtitle">Select your portal role & sign in</p>
+            <h2>UCM Secure Portal Login</h2>
+            <p class="subtitle">Select your account role to sign in</p>
             
             <form onsubmit="handleLogin(event)">
                 <div class="form-group">
-                    <label>Account Role</label>
+                    <label>Select Portal Role</label>
                     <select id="login-role" class="form-control" required>
                         <option value="student">Student / Parent Access</option>
                         <option value="teacher">Teacher Access</option>
@@ -139,7 +145,7 @@ def home_portal(request):
                 
                 <div class="form-group">
                     <label>Username (First Name or ADMIN)</label>
-                    <input type="text" id="login-username" class="form-control" placeholder="e.g. ABDUL or ADMIN" required>
+                    <input type="text" id="login-username" class="form-control" placeholder="e.g. ABDUL, MUNEEB, or ADMIN" required>
                 </div>
 
                 <div class="form-group">
@@ -147,7 +153,7 @@ def home_portal(request):
                     <input type="password" id="login-password" class="form-control" placeholder="Default: 123456" required>
                 </div>
 
-                <button type="submit" class="btn-submit">🔐 Sign In to Portal</button>
+                <button type="submit" class="btn-submit">🔐 Sign In to Secured Portal</button>
                 <div id="login-error" class="error-msg">Invalid credentials! Password default is 123456.</div>
             </form>
         </div>
@@ -157,7 +163,7 @@ def home_portal(request):
     <div id="pwd-modal" class="modal-bg">
         <div class="modal-box">
             <h3 style="color:var(--uds-green); margin-bottom:8px;">🔒 Change Default Password</h3>
-            <p style="font-size:13px; color:var(--text-muted); margin-bottom:20px;">You are logging in with the default password (123456). Please set a new secure password to proceed.</p>
+            <p style="font-size:13px; color:var(--text-muted); margin-bottom:20px;">You are logging in with default password (123456). Please set a new password to proceed.</p>
             
             <form onsubmit="saveNewPassword(event)">
                 <div class="form-group">
@@ -173,22 +179,27 @@ def home_portal(request):
         </div>
     </div>
 
-    <!-- MAIN PORTAL DASHBOARD (LOADS AFTER SUCCESSFUL LOGIN) -->
+    <!-- MAIN PORTAL DASHBOARD -->
     <div id="portal-dashboard">
         
         <div class="role-nav">
-            <div id="tab-student" class="role-tab active" onclick="switchRole('student')">🎓 Student / Parent Access</div>
-            <div id="tab-teacher" class="role-tab" onclick="switchRole('teacher')">👨‍🏫 Teacher Access</div>
-            <div id="tab-admin" class="role-tab" onclick="switchRole('admin')">🔐 Administrator Access</div>
+            <div id="tab-student" class="role-tab" onclick="switchRole('student')">🎓 Student Dashboard</div>
+            <div id="tab-teacher" class="role-tab" onclick="switchRole('teacher')">👨‍🏫 Teacher Workspace</div>
+            <div id="tab-admin" class="role-tab" onclick="switchRole('admin')">🔐 Administrator Panel</div>
         </div>
 
         <div class="portal-container">
 
+            <div class="banner-alert" id="system-banner">
+                <span id="banner-text">📢 Notice: Mid-Term Examination Results for Term II have been published. Check your Report Cards tab below.</span>
+                <span style="font-size:11px; opacity:0.8;">Verified System Broadcast</span>
+            </div>
+
             <!-- ================= STUDENT / PARENT PANEL ================= -->
-            <div id="panel-student" class="portal-panel active">
+            <div id="panel-student" class="portal-panel">
                 <div class="profile-card">
                     <div class="avatar-box">
-                        <img src="https://ui-avatars.com/api/?name=Abdul+Haqq&background=006837&color=fff&size=128" alt="Passport Picture">
+                        <img id="student-passport" src="https://ui-avatars.com/api/?name=Abdul+Haqq&background=006837&color=fff&size=128" alt="Passport Picture">
                     </div>
                     <div class="profile-info" style="width:100%;">
                         <h2 id="student-display-name">ABDUL HAQQ DRAMANI JAWULA</h2>
@@ -204,13 +215,14 @@ def home_portal(request):
                 <div class="module-nav">
                     <button class="module-btn active" onclick="switchSubTab('student', 'fees', this)">💰 School Fees Ledger</button>
                     <button class="module-btn" onclick="switchSubTab('student', 'timetable', this)">📅 Class Timetable</button>
+                    <button class="module-btn" onclick="switchSubTab('student', 'course-reg', this)">📚 Course Registration</button>
                     <button class="module-btn" onclick="switchSubTab('student', 'admission', this)">📜 Admission Letter</button>
                     <button class="module-btn" onclick="switchSubTab('student', 'reports', this)">📄 Term Report Cards</button>
                 </div>
 
                 <div id="student-fees" class="sub-content content-box">
-                    <div class="box-title">School Fees Ledger & Balance</div>
-                    <table class="enterprise-table">
+                    <div class="box-title">School Fees Ledger & Statement</div>
+                    <table class="enterprise-table" id="student-fee-table">
                         <thead>
                             <tr>
                                 <th>Bill Item / Description</th>
@@ -267,15 +279,35 @@ def home_portal(request):
                     </table>
                 </div>
 
+                <div id="student-course-reg" class="sub-content content-box" style="display:none;">
+                    <div class="box-title">Registered Academic Courses (Term II)</div>
+                    <table class="enterprise-table">
+                        <thead>
+                            <tr>
+                                <th>Course Code</th>
+                                <th>Subject Title</th>
+                                <th>Instructor</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>KG-ENG101</td><td>English Literacy & Phonics</td><td>Muneeb Bashiru</td><td><span class="status-badge">Confirmed</span></td></tr>
+                            <tr><td>KG-MTH101</td><td>Numeracy & Basic Counting</td><td>Muneeb Bashiru</td><td><span class="status-badge">Confirmed</span></td></tr>
+                            <tr><td>KG-ICT101</td><td>Basic ICT & Computer Literacy</td><td>Admin Instructor</td><td><span class="status-badge">Confirmed</span></td></tr>
+                            <tr><td>KG-ART101</td><td>Creative & Practical Arts</td><td>Muneeb Bashiru</td><td><span class="status-badge">Confirmed</span></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
                 <div id="student-admission" class="sub-content content-box" style="display:none;">
                     <div class="box-title">Official Letter of Admission</div>
-                    <p><strong>Dear Parent / Student,</strong></p><br>
+                    <p><strong>Dear Parent / Guardian,</strong></p><br>
                     <p>We are pleased to inform you that the applicant has been offered official admission into <strong>Kindergarten 1</strong> at Al-Wasilah School for the 2026/2027 Academic Session.</p><br>
                     <p>Admission Number: <strong>250021602</strong><br>Date of Issuance: January 5, 2026</p>
                 </div>
 
                 <div id="student-reports" class="sub-content content-box" style="display:none;">
-                    <div class="box-title">Available Terminal Reports</div>
+                    <div class="box-title">Terminal Assessment Reports</div>
                     <table class="enterprise-table">
                         <thead>
                             <tr>
@@ -290,7 +322,7 @@ def home_portal(request):
                                 <td>2025/2026</td>
                                 <td>Term 3</td>
                                 <td>1st / 35</td>
-                                <td><a href="/report-card/1/" target="_blank" style="color:var(--uds-green); font-weight:700;">📄 Open Report Card</a></td>
+                                <td><a href="/report-card/1/" target="_blank" style="color:var(--uds-green); font-weight:700;">📄 Open Printable Report Card</a></td>
                             </tr>
                         </tbody>
                     </table>
@@ -301,7 +333,7 @@ def home_portal(request):
             <div id="panel-teacher" class="portal-panel">
                 <div class="profile-card">
                     <div class="avatar-box">
-                        <img src="https://ui-avatars.com/api/?name=Muneeb+Bashiru&background=f7941e&color=fff&size=128" alt="Teacher Photo">
+                        <img id="teacher-passport" src="https://ui-avatars.com/api/?name=Muneeb+Bashiru&background=f7941e&color=fff&size=128" alt="Teacher Photo">
                     </div>
                     <div class="profile-info">
                         <h2 id="teacher-display-name">MUNEEB BASHIRU (CLASS INSTRUCTOR)</h2>
@@ -313,48 +345,183 @@ def home_portal(request):
                     </div>
                 </div>
 
-                <div class="content-box">
-                    <div class="box-title">Assigned Class Roster & Grading</div>
+                <div class="module-nav">
+                    <button class="module-btn active" onclick="switchSubTab('teacher', 'grading', this)">📝 Grade & Score Entry</button>
+                    <button class="module-btn" onclick="switchSubTab('teacher', 'attendance', this)">📋 Mark Attendance</button>
+                    <button class="module-btn" onclick="switchSubTab('teacher', 'resources', this)">📤 Upload Lesson Plans</button>
+                </div>
+
+                <div id="teacher-grading" class="sub-content content-box">
+                    <div class="box-title">Class Gradebook Entry (KG 1)</div>
                     <table class="enterprise-table">
                         <thead>
                             <tr>
                                 <th>Student ID</th>
                                 <th>Student Name</th>
-                                <th>Attendance</th>
-                                <th>Term Assessment</th>
+                                <th>Class Assessment (40%)</th>
+                                <th>Exam Score (60%)</th>
+                                <th>Total Mark</th>
+                                <th>Grade</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr>
                                 <td>250021602</td>
                                 <td>ABDUL HAQQ DRAMANI JAWULA</td>
-                                <td>98%</td>
-                                <td><span class="status-badge">Grades Uploaded</span></td>
+                                <td><input type="number" class="input-sm" id="ca-1" value="38" onchange="calcGrade(1)"></td>
+                                <td><input type="number" class="input-sm" id="ex-1" value="55" onchange="calcGrade(1)"></td>
+                                <td><strong id="tot-1">93</strong></td>
+                                <td><span class="status-badge" id="grd-1">A+</span></td>
+                            </tr>
+                            <tr>
+                                <td>2500120</td>
+                                <td>MUNEEB BASHIRU</td>
+                                <td><input type="number" class="input-sm" id="ca-2" value="34" onchange="calcGrade(2)"></td>
+                                <td><input type="number" class="input-sm" id="ex-2" value="48" onchange="calcGrade(2)"></td>
+                                <td><strong id="tot-2">82</strong></td>
+                                <td><span class="status-badge" id="grd-2">A</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <br>
+                    <button onclick="alert('Student grades updated and saved successfully!')" class="btn-submit" style="width:200px;">💾 Save Class Grades</button>
+                </div>
+
+                <div id="teacher-attendance" class="sub-content content-box" style="display:none;">
+                    <div class="box-title">Daily Attendance Register</div>
+                    <table class="enterprise-table">
+                        <thead>
+                            <tr>
+                                <th>Student ID</th>
+                                <th>Student Name</th>
+                                <th>Status Today</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>250021602</td>
+                                <td>ABDUL HAQQ DRAMANI JAWULA</td>
+                                <td><span class="status-badge" id="att-1">Present</span></td>
+                                <td><button onclick="toggleAttendance(1)" style="padding:4px 10px; cursor:pointer;">Toggle Attendance</button></td>
+                            </tr>
+                            <tr>
+                                <td>2500120</td>
+                                <td>MUNEEB BASHIRU</td>
+                                <td><span class="status-badge" id="att-2">Present</span></td>
+                                <td><button onclick="toggleAttendance(2)" style="padding:4px 10px; cursor:pointer;">Toggle Attendance</button></td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
+
+                <div id="teacher-resources" class="sub-content content-box" style="display:none;">
+                    <div class="box-title">Upload Lesson Plan / Assignment</div>
+                    <form onsubmit="event.preventDefault(); alert('Lesson resource published for students!');">
+                        <div class="form-group">
+                            <label>Title</label>
+                            <input type="text" class="form-control" placeholder="e.g. Term II Phonics Reading Worksheet" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Target Class</label>
+                            <select class="form-control"><option>Kindergarten 1</option><option>Primary 1</option></select>
+                        </div>
+                        <div class="form-group">
+                            <label>File Attachment</label>
+                            <input type="file" class="form-control">
+                        </div>
+                        <button type="submit" class="btn-submit" style="width:200px;">📤 Publish Resource</button>
+                    </form>
+                </div>
             </div>
 
-            <!-- ================= ADMIN PANEL ================= -->
+            <!-- ================= ADMIN CONTROL PANEL ================= -->
             <div id="panel-admin" class="portal-panel">
                 <div class="profile-card">
                     <div class="avatar-box">
-                        <img src="https://ui-avatars.com/api/?name=Admin+User&background=1b1e21&color=fff&size=128" alt="Admin Photo">
+                        <img src="https://ui-avatars.com/api/?name=Admin+Control&background=1b1e21&color=fff&size=128" alt="Admin Photo">
                     </div>
                     <div class="profile-info">
-                        <h2>SYSTEM ADMINISTRATOR (ADMIN)</h2>
+                        <h2>SYSTEM ADMINISTRATOR CONTROL PANEL</h2>
                         <div class="profile-grid">
-                            <div><span>Role</span>Super User / Registrar</div>
-                            <div><span>System Status</span>Online / All Services Active</div>
+                            <div><span>System Level</span>Super User / Registrar</div>
+                            <div><span>Branding Status</span>Live Customization Active</div>
                         </div>
                     </div>
                 </div>
 
-                <div class="content-box">
-                    <div class="box-title">Administrative Actions</div>
-                    <p style="margin-bottom:15px;">Click below to access Django's backend administrative portal.</p>
-                    <a href="/admin/" target="_blank" style="background:var(--uds-green); color:white; padding:10px 20px; text-decoration:none; border-radius:4px; font-weight:700;">🔐 Open Django Admin Panel</a>
+                <div class="module-nav">
+                    <button class="module-btn active" onclick="switchSubTab('admin', 'branding', this)">🎨 Interface & Branding</button>
+                    <button class="module-btn" onclick="switchSubTab('admin', 'fees-mgr', this)">💳 Fee Ledger Manager</button>
+                    <button class="module-btn" onclick="switchSubTab('admin', 'announcements', this)">📢 Broadcast Announcements</button>
+                    <button class="module-btn" onclick="switchSubTab('admin', 'backend', this)">🔐 Django Backend</button>
+                </div>
+
+                <div id="admin-branding" class="sub-content content-box">
+                    <div class="box-title">Live Portal Customization Engine</div>
+                    <form onsubmit="applyAdminBranding(event)">
+                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px;">
+                            <div class="form-group">
+                                <label>School Name Header Title</label>
+                                <input type="text" id="cfg-school-name" class="form-control" value="Al-Wasilah School Portal">
+                            </div>
+                            <div class="form-group">
+                                <label>Sub-Header Motto / Tagline</label>
+                                <input type="text" id="cfg-motto" class="form-control" value="Knowledge for Service • Enterprise Academic Portal">
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>School Logo Image URL</label>
+                            <input type="text" id="cfg-logo-url" class="form-control" value="/media/branding/WhatsApp_Image_2026-01-02_at_6.23.10_AM-removebg-preview-removebg-preview.png">
+                        </div>
+
+                        <div class="form-group">
+                            <label>Portal Primary Theme Color</label>
+                            <select id="cfg-theme-color" class="form-control" onchange="changeThemeColor(this.value)">
+                                <option value="#006837">UDS Forest Green (#006837)</option>
+                                <option value="#1e40af">Deep Navy Blue (#1e40af)</option>
+                                <option value="#800020">Burgundy Red (#800020)</option>
+                                <option value="#0f766e">Teal (#0f766e)</option>
+                            </select>
+                        </div>
+
+                        <button type="submit" class="btn-submit" style="width:250px;">✨ Update Portal Interface</button>
+                    </form>
+                </div>
+
+                <div id="admin-fees-mgr" class="sub-content content-box" style="display:none;">
+                    <div class="box-title">Add Fee Item to Student Ledgers</div>
+                    <form onsubmit="addFeeItem(event)">
+                        <div style="display:grid; grid-template-columns: 2fr 1fr; gap:15px;">
+                            <div class="form-group">
+                                <label>Fee Item Description</label>
+                                <input type="text" id="new-fee-desc" class="form-control" placeholder="e.g. End of Term Exam Levy" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Amount (GHS)</label>
+                                <input type="number" id="new-fee-amt" class="form-control" placeholder="100.00" required>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn-submit" style="width:220px;">➕ Add to Fee Ledger</button>
+                    </form>
+                </div>
+
+                <div id="admin-announcements" class="sub-content content-box" style="display:none;">
+                    <div class="box-title">Broadcast Portal System Banner</div>
+                    <form onsubmit="updateBanner(event)">
+                        <div class="form-group">
+                            <label>Announcement Message</label>
+                            <input type="text" id="new-banner-text" class="form-control" value="📢 Notice: Mid-Term Examination Results for Term II have been published." required>
+                        </div>
+                        <button type="submit" class="btn-submit" style="width:220px;">📢 Broadcast Notice</button>
+                    </form>
+                </div>
+
+                <div id="admin-backend" class="sub-content content-box" style="display:none;">
+                    <div class="box-title">Django Database Operations</div>
+                    <p style="margin-bottom:15px;">Access low-level models, user roles, database backups, and admin logs.</p>
+                    <a href="/admin/" target="_blank" class="btn-submit" style="display:inline-block; width:auto; padding:10px 20px; text-decoration:none;">🔐 Open Django Admin Panel</a>
                 </div>
             </div>
 
@@ -362,12 +529,8 @@ def home_portal(request):
     </div>
 
     <script>
-        let currentRole = '';
-        let userPasswords = {
-            'student': '123456',
-            'teacher': '123456',
-            'admin': '123456'
-        };
+        let currentAuthenticatedRole = null;
+        let userPasswords = { 'student': '123456', 'teacher': '123456', 'admin': '123456' };
 
         function handleLogin(e) {
             e.preventDefault();
@@ -383,11 +546,9 @@ def home_portal(request):
             }
 
             if (pass === userPasswords[role]) {
-                currentRole = role;
                 err.style.display = 'none';
-                
-                // Require password change if default 123456
                 if (pass === '123456') {
+                    currentAuthenticatedRole = role;
                     document.getElementById('pwd-modal').style.display = 'flex';
                 } else {
                     grantAccess(role, user);
@@ -402,22 +563,19 @@ def home_portal(request):
             e.preventDefault();
             const p1 = document.getElementById('new-password').value;
             const p2 = document.getElementById('confirm-password').value;
-
-            if (p1 !== p2) {
-                alert("Passwords do not match!");
-                return;
-            }
-
-            userPasswords[currentRole] = p1;
+            if (p1 !== p2) { alert("Passwords do not match!"); return; }
+            userPasswords[currentAuthenticatedRole] = p1;
             document.getElementById('pwd-modal').style.display = 'none';
-            const user = document.getElementById('login-username').value.toUpperCase();
-            grantAccess(currentRole, user);
+            grantAccess(currentAuthenticatedRole, document.getElementById('login-username').value.toUpperCase());
         }
 
         function grantAccess(role, username) {
+            currentAuthenticatedRole = role;
+
             document.getElementById('login-overlay').style.display = 'none';
             document.getElementById('portal-dashboard').style.display = 'block';
             document.getElementById('header-actions').style.display = 'flex';
+            document.getElementById('active-user-badge').innerText = `Logged in as: ${username} (${role.toUpperCase()})`;
 
             if (role === 'student' && username) {
                 document.getElementById('student-display-name').innerText = username + " DRAMANI JAWULA";
@@ -425,25 +583,23 @@ def home_portal(request):
                 document.getElementById('teacher-display-name').innerText = username + " BASHIRU (CLASS INSTRUCTOR)";
             }
 
-            switchRole(role);
+            // Hide all tabs and panels first
+            document.querySelectorAll('.role-tab').forEach(t => t.style.display = 'none');
+            document.querySelectorAll('.portal-panel').forEach(p => p.classList.remove('active'));
+
+            // Show ONLY the authorized tab & panel
+            const activeTab = document.getElementById('tab-' + role);
+            const activePanel = document.getElementById('panel-' + role);
+            if (activeTab) { activeTab.style.display = 'block'; activeTab.classList.add('active'); }
+            if (activePanel) { activePanel.classList.add('active'); }
         }
 
         function logout() {
+            currentAuthenticatedRole = null;
             document.getElementById('portal-dashboard').style.display = 'none';
             document.getElementById('header-actions').style.display = 'none';
             document.getElementById('login-overlay').style.display = 'flex';
             document.getElementById('login-password').value = '';
-        }
-
-        function switchRole(role) {
-            document.querySelectorAll('.role-tab').forEach(tab => tab.classList.remove('active'));
-            document.querySelectorAll('.portal-panel').forEach(panel => panel.classList.remove('active'));
-            
-            const targetTab = document.getElementById('tab-' + role);
-            if (targetTab) targetTab.classList.add('active');
-            
-            const targetPanel = document.getElementById('panel-' + role);
-            if (targetPanel) targetPanel.classList.add('active');
         }
 
         function switchSubTab(role, tabName, btn) {
@@ -453,6 +609,59 @@ def home_portal(request):
 
             btn.classList.add('active');
             document.getElementById(role + '-' + tabName).style.display = 'block';
+        }
+
+        function calcGrade(rowId) {
+            const ca = parseFloat(document.getElementById('ca-' + rowId).value) || 0;
+            const ex = parseFloat(document.getElementById('ex-' + rowId).value) || 0;
+            const tot = ca + ex;
+            document.getElementById('tot-' + rowId).innerText = tot;
+            let grd = 'F';
+            if (tot >= 80) grd = 'A+';
+            else if (tot >= 70) grd = 'A';
+            else if (tot >= 60) grd = 'B';
+            else if (tot >= 50) grd = 'C';
+            document.getElementById('grd-' + rowId).innerText = grd;
+        }
+
+        function toggleAttendance(id) {
+            const el = document.getElementById('att-' + id);
+            if (el.innerText === 'Present') {
+                el.innerText = 'Absent';
+                el.className = 'status-badge status-pending';
+            } else {
+                el.innerText = 'Present';
+                el.className = 'status-badge';
+            }
+        }
+
+        function changeThemeColor(color) {
+            document.documentElement.style.setProperty('--uds-green', color);
+        }
+
+        function applyAdminBranding(e) {
+            e.preventDefault();
+            document.getElementById('header-title-text').innerText = document.getElementById('cfg-school-name').value;
+            document.getElementById('header-subtitle-text').innerText = document.getElementById('cfg-motto').value;
+            document.getElementById('header-logo-img').src = document.getElementById('cfg-logo-url').value;
+            alert('Portal branding updated live!');
+        }
+
+        function addFeeItem(e) {
+            e.preventDefault();
+            const desc = document.getElementById('new-fee-desc').value;
+            const amt = parseFloat(document.getElementById('new-fee-amt').value).toFixed(2);
+            const tbody = document.querySelector('#student-fee-table tbody');
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td>${desc}</td><td>${amt}</td><td>0.00</td><td>${amt}</td><td><span class="status-badge status-pending">Unpaid</span></td>`;
+            tbody.appendChild(tr);
+            alert('Fee item added to Student Ledgers!');
+        }
+
+        function updateBanner(e) {
+            e.preventDefault();
+            document.getElementById('banner-text').innerText = document.getElementById('new-banner-text').value;
+            alert('System broadcast updated!');
         }
     </script>
 </body>
