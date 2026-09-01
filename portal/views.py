@@ -1,17 +1,105 @@
-from django.shortcuts import render
-from django.http import HttpResponse
+from django.shortcuts import render, redirect
+from django.http import HttpResponse, HttpResponseForbidden
+from django.template import Template, Context
+from django.contrib.auth import login, logout, authenticate
+from django.contrib.auth.models import User
+from django.contrib.auth.decorators import login_required
+from django.db import models
 
-def home_portal(request):
-    html_content = """<!DOCTYPE html>
+# ==============================================================================
+# 1. DATABASE MODELS (PERSISTENCE LAYER)
+# ==============================================================================
+
+ROLE_CHOICES = (
+    ('student', 'Student / Parent'),
+    ('teacher', 'Teacher'),
+    ('admin', 'Administrator'),
+)
+
+class UserProfile(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='student')
+    
+    class Meta:
+        app_label = 'portal'
+
+class SchoolSetting(models.Model):
+    school_name = models.CharField(max_length=200, default="Al-Wasilah School Portal")
+    tagline = models.CharField(max_length=200, default="Knowledge for Service • Enterprise Academic Portal")
+    logo_url = models.CharField(max_length=500, default="/media/branding/WhatsApp_Image_2026-01-02_at_6.23.10_AM-removebg-preview-removebg-preview.png")
+    theme_color = models.CharField(max_length=10, default="#006837")
+    current_session = models.CharField(max_length=100, default="2026/2027 ACADEMIC YEAR - TERM II")
+    banner_notice = models.TextField(default="📢 Notice: Mid-Term Examination Results for Term II have been published.")
+
+    class Meta:
+        app_label = 'portal'
+
+class StudentProfile(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='student_record')
+    index_number = models.CharField(max_length=20, unique=True)
+    class_level = models.CharField(max_length=50, default="Kindergarten 1")
+    parent_name = models.CharField(max_length=100, default="Parent / Guardian")
+    parent_user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='children')
+
+    class Meta:
+        app_label = 'portal'
+
+    def __str__(self):
+        return f"{self.user.get_full_name() or self.user.username} [{self.index_number}]"
+
+class FeeLedger(models.Model):
+    student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, related_name='fees')
+    description = models.CharField(max_length=200)
+    billed_amount = models.DecimalField(max_digits=10, decimal_places=2)
+    amount_paid = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        app_label = 'portal'
+
+    @property
+    def balance_due(self):
+        return self.billed_amount - self.amount_paid
+
+class GradeRecord(models.Model):
+    student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, related_name='grades')
+    subject_code = models.CharField(max_length=20)
+    subject_name = models.CharField(max_length=100)
+    class_score = models.FloatField(default=0.0)  # Out of 40
+    exam_score = models.FloatField(default=0.0)   # Out of 60
+    term = models.CharField(max_length=50, default="Term II")
+
+    class Meta:
+        app_label = 'portal'
+
+    @property
+    def total_score(self):
+        return self.class_score + self.exam_score
+
+    @property
+    def letter_grade(self):
+        tot = self.total_score
+        if tot >= 80: return 'A+'
+        if tot >= 70: return 'A'
+        if tot >= 60: return 'B'
+        if tot >= 50: return 'C'
+        return 'F'
+
+
+# ==============================================================================
+# 2. INLINE TEMPLATE (HTML, CSS & JAVASCRIPT)
+# ==============================================================================
+
+SINGLE_PAGE_TEMPLATE = """<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>UCM Enterprise | Al-Wasilah School Portal</title>
+    <title>{{ settings.school_name }}</title>
     <link href="https://fonts.googleapis.com/css2?family=Segoe+UI:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --uds-green: #006837;
+            --uds-green: {{ settings.theme_color }};
             --uds-green-dark: #004d28;
             --uds-gold: #f7941e;
             --bg-light: #f4f6f9;
@@ -23,12 +111,10 @@ def home_portal(request):
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--bg-light); color: var(--text-main); }
 
-        /* Top Utility Bar */
         .utility-bar { background: #1b1e21; color: #d1d5db; font-size: 12px; padding: 6px 40px; display: flex; justify-content: space-between; align-items: center; }
         .utility-bar span { font-weight: 700; color: #fff; }
 
-        /* Header */
-        .ucm-header { background: var(--uds-green); color: white; padding: 18px 40px; display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid var(--uds-gold); box-shadow: 0 4px 10px rgba(0,0,0,0.1); transition: background 0.3s; }
+        .ucm-header { background: var(--uds-green); color: white; padding: 18px 40px; display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid var(--uds-gold); box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
         .brand { display: flex; align-items: center; gap: 16px; }
         .brand img { height: 58px; width: 58px; background: white; border-radius: 50%; padding: 4px; object-fit: contain; }
         .brand-text h1 { font-size: 22px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
@@ -37,50 +123,19 @@ def home_portal(request):
         .btn-top { background-color: white; color: var(--uds-green); padding: 8px 16px; border-radius: 4px; font-weight: 700; font-size: 13px; text-decoration: none; border: none; cursor: pointer; display: flex; align-items: center; gap: 6px; }
         .btn-top:hover { background-color: #e2e8f0; }
 
-        /* Login Screen Overlay */
-        #login-overlay { display: flex; justify-content: center; align-items: center; min-height: 75vh; padding: 20px; }
-        .login-card { background: white; border: 1px solid var(--border-color); border-radius: 8px; width: 100%; max-width: 440px; padding: 30px; box-shadow: 0 10px 25px rgba(0,0,0,0.08); border-top: 6px solid var(--uds-green); }
-        .login-card h2 { color: var(--uds-green); font-size: 20px; font-weight: 700; text-align: center; margin-bottom: 5px; text-transform: uppercase; }
-        .login-card p.subtitle { text-align: center; color: var(--text-muted); font-size: 13px; margin-bottom: 25px; }
-
-        .form-group { margin-bottom: 18px; }
-        .form-group label { display: block; font-size: 12px; font-weight: 700; text-transform: uppercase; color: var(--text-main); margin-bottom: 6px; }
-        .form-control { width: 100%; padding: 11px 14px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 14px; outline: none; transition: border-color 0.2s; }
-        .form-control:focus { border-color: var(--uds-green); box-shadow: 0 0 0 3px rgba(0, 104, 55, 0.15); }
-
-        .btn-submit { width: 100%; background: var(--uds-green); color: white; padding: 12px; border: none; border-radius: 4px; font-weight: 700; font-size: 14px; cursor: pointer; text-transform: uppercase; letter-spacing: 0.5px; transition: background 0.2s; margin-top: 10px; }
-        .btn-submit:hover { background: var(--uds-green-dark); }
-        .error-msg { color: #dc2626; font-size: 12px; font-weight: 600; text-align: center; margin-top: 10px; display: none; }
-
-        /* Modals */
-        .modal-bg { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 1000; justify-content: center; align-items: center; }
-        .modal-box { background: white; padding: 30px; border-radius: 8px; max-width: 420px; width: 90%; border-top: 6px solid var(--uds-gold); }
-
-        /* Main Portal Dashboard */
-        #portal-dashboard { display: none; }
-
-        .role-nav { background: white; border-bottom: 2px solid var(--border-color); padding: 0 40px; display: flex; gap: 10px; }
-        .role-tab { padding: 14px 24px; text-decoration: none; color: var(--text-muted); font-size: 14px; font-weight: 700; border-bottom: 3px solid transparent; cursor: pointer; display: none; }
-        .role-tab.active { color: var(--uds-green); border-bottom-color: var(--uds-green); background: #f8fafc; display: block !important; }
-
         .portal-container { max-width: 1240px; margin: 25px auto; padding: 0 20px; }
-        .portal-panel { display: none; }
-        .portal-panel.active { display: block; }
 
-        /* System Banner */
         .banner-alert { background: #e6f4ea; border-left: 5px solid var(--uds-green); color: #137333; padding: 14px 20px; border-radius: 4px; margin-bottom: 20px; font-size: 13px; font-weight: 600; display: flex; justify-content: space-between; align-items: center; }
 
-        /* Profile Card */
         .profile-card { background: white; border: 1px solid var(--border-color); border-radius: 8px; padding: 24px; margin-bottom: 25px; display: flex; align-items: center; gap: 24px; box-shadow: 0 2px 6px rgba(0,0,0,0.03); border-top: 5px solid var(--uds-green); }
         .avatar-box { width: 100px; height: 100px; border-radius: 6px; border: 2px solid var(--uds-green); overflow: hidden; background: #e2e8f0; flex-shrink: 0; }
         .avatar-box img { width: 100%; height: 100%; object-fit: cover; }
-        .profile-info h2 { font-size: 20px; color: var(--uds-green); margin-bottom: 4px; }
+        .profile-info h2 { font-size: 20px; color: var(--uds-green); margin-bottom: 4px; text-transform: uppercase; }
         .profile-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-top: 10px; font-size: 13px; }
         .profile-grid div span { font-weight: 700; color: var(--text-muted); display: block; font-size: 11px; text-transform: uppercase; }
 
-        /* Sub Modules Navigation */
-        .module-nav { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); overflow-x: auto; }
-        .module-btn { padding: 10px 18px; background: white; border: 1px solid var(--border-color); border-bottom: none; border-radius: 6px 6px 0 0; font-size: 13px; font-weight: 600; cursor: pointer; color: var(--text-main); white-space: nowrap; }
+        .module-nav { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); }
+        .module-btn { padding: 10px 18px; background: white; border: 1px solid var(--border-color); border-bottom: none; border-radius: 6px 6px 0 0; font-size: 13px; font-weight: 600; cursor: pointer; color: var(--text-main); }
         .module-btn.active { background: var(--uds-green); color: white; border-color: var(--uds-green); }
 
         .content-box { background: white; border: 1px solid var(--border-color); border-radius: 6px; padding: 24px; box-shadow: 0 2px 6px rgba(0,0,0,0.03); margin-bottom: 25px; }
@@ -93,580 +148,333 @@ def home_portal(request):
 
         .status-badge { padding: 4px 10px; border-radius: 3px; font-size: 11px; font-weight: 700; text-transform: uppercase; background: #e6f4ea; color: #137333; }
         .status-pending { background: #fef7e0; color: #b45309; }
-        .input-sm { padding: 6px 10px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 13px; width: 80px; }
+        .form-control { width: 100%; padding: 10px 14px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 14px; margin-top: 5px; margin-bottom: 15px; }
+        .btn-submit { background: var(--uds-green); color: white; padding: 10px 20px; border: none; border-radius: 4px; font-weight: 700; font-size: 13px; cursor: pointer; text-transform: uppercase; }
 
         @media print {
-            .utility-bar, .ucm-header, .role-nav, .module-nav, .btn-top, #login-overlay { display: none !important; }
+            .utility-bar, .ucm-header, .module-nav, .btn-top { display: none !important; }
             body { background: white; }
             .portal-container { max-width: 100%; margin: 0; padding: 0; }
-            .content-box, .profile-card { border: none; box-shadow: none; }
         }
     </style>
 </head>
 <body>
 
-    <!-- Top Utility Bar -->
     <div class="utility-bar">
-        <div>AL-WASILAH UCM ENTERPRISE PORTAL</div>
-        <div>Current Session: <span id="sys-session-text">2026/2027 ACADEMIC YEAR - TERM II</span></div>
+        <div>{{ settings.school_name|upper }}</div>
+        <div>Current Session: <span>{{ settings.current_session }}</span></div>
     </div>
 
-    <!-- Header -->
-    <header class="ucm-header" id="header-bar">
+    <header class="ucm-header">
         <div class="brand">
-            <img id="header-logo-img" src="/media/branding/WhatsApp_Image_2026-01-02_at_6.23.10_AM-removebg-preview-removebg-preview.png" alt="School Logo">
+            <img src="{{ settings.logo_url }}" alt="School Logo">
             <div class="brand-text">
-                <h1 id="header-title-text">Al-Wasilah School Portal</h1>
-                <p id="header-subtitle-text">Knowledge for Service &bull; Enterprise Academic Portal</p>
+                <h1>{{ settings.school_name }}</h1>
+                <p>{{ settings.tagline }}</p>
             </div>
         </div>
-        <div id="header-actions" style="display:none; gap:10px; align-items:center;">
-            <span id="active-user-badge" style="font-size:12px; background:rgba(255,255,255,0.2); padding:6px 12px; border-radius:4px; font-weight:600;"></span>
-            <button onclick="window.print()" class="btn-top">🖨️ Print PDF</button>
-            <button onclick="logout()" class="btn-top" style="background:#dc2626; color:white;">🔒 Switch Account / Logout</button>
+        <div style="display:flex; gap:10px; align-items:center;">
+            <span style="font-size:12px; background:rgba(255,255,255,0.2); padding:6px 12px; border-radius:4px; font-weight:600;">
+                Logged in as: {{ user.username|upper }} ({{ role|upper }})
+            </span>
+            <button onclick="window.print()" class="btn-top">🖨️ Print Document</button>
+            <a href="/logout/" class="btn-top" style="background:#dc2626; color:white; text-decoration:none;">🔒 Logout</a>
         </div>
     </header>
 
-    <!-- LOGIN OVERLAY -->
-    <div id="login-overlay">
-        <div class="login-card">
-            <h2>UCM Secure Portal Login</h2>
-            <p class="subtitle">Select your account role to sign in</p>
-            
-            <form onsubmit="handleLogin(event)">
-                <div class="form-group">
-                    <label>Select Portal Role</label>
-                    <select id="login-role" class="form-control" required>
-                        <option value="student">Student / Parent Access</option>
-                        <option value="teacher">Teacher Access</option>
-                        <option value="admin">Administrator Access</option>
-                    </select>
+    <div class="portal-container">
+
+        <div class="banner-alert">
+            <span>{{ settings.banner_notice }}</span>
+            <span style="font-size:11px; opacity:0.8;">Verified System Broadcast</span>
+        </div>
+
+        {% if role == 'student' %}
+        <!-- ================= ISOLATED STUDENT / PARENT PORTAL ================= -->
+        <div class="profile-card">
+            <div class="avatar-box">
+                <img src="https://ui-avatars.com/api/?name={{ student.user.username }}&background=006837&color=fff&size=128" alt="Passport">
+            </div>
+            <div class="profile-info" style="width:100%;">
+                <h2>{{ student.user.get_full_name|default:student.user.username }}</h2>
+                <div class="profile-grid">
+                    <div><span>Index / Admission No</span>{{ student.index_number }}</div>
+                    <div><span>Class Assigned</span>{{ student.class_level }}</div>
+                    <div><span>Parent / Guardian</span>{{ student.parent_name }}</div>
+                    <div><span>Portal Isolation</span><span class="status-badge">Strict Student Account</span></div>
                 </div>
+            </div>
+        </div>
+
+        <div class="module-nav">
+            <button class="module-btn active" onclick="switchTab('fees', this)">💰 Fee Ledger & Statement</button>
+            <button class="module-btn" onclick="switchTab('grades', this)">📊 Terminal Report Card</button>
+        </div>
+
+        <div id="tab-fees" class="sub-tab content-box">
+            <div class="box-title">Official Financial Statement (Persistent)</div>
+            <table class="enterprise-table">
+                <thead>
+                    <tr>
+                        <th>Bill Description</th>
+                        <th>Billed Amount</th>
+                        <th>Amount Paid</th>
+                        <th>Balance Due</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for fee in fees %}
+                    <tr>
+                        <td>{{ fee.description }}</td>
+                        <td>GHS {{ fee.billed_amount }}</td>
+                        <td>GHS {{ fee.amount_paid }}</td>
+                        <td><strong>GHS {{ fee.balance_due }}</strong></td>
+                        <td>
+                            {% if fee.balance_due <= 0 %}
+                            <span class="status-badge">Cleared</span>
+                            {% else %}
+                            <span class="status-badge status-pending">Outstanding</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="5">No fee records found for your account.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div id="tab-grades" class="sub-tab content-box" style="display:none;">
+            <div class="box-title">Terminal Assessment Results</div>
+            <table class="enterprise-table">
+                <thead>
+                    <tr>
+                        <th>Subject Code</th>
+                        <th>Subject Title</th>
+                        <th>Class Mark (40%)</th>
+                        <th>Exam Mark (60%)</th>
+                        <th>Total Score</th>
+                        <th>Grade</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for g in grades %}
+                    <tr>
+                        <td>{{ g.subject_code }}</td>
+                        <td>{{ g.subject_name }}</td>
+                        <td>{{ g.class_score }}</td>
+                        <td>{{ g.exam_score }}</td>
+                        <td><strong>{{ g.total_score }}</strong></td>
+                        <td><span class="status-badge">{{ g.letter_grade }}</span></td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="6">No grades published for this account yet.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% elif role == 'teacher' %}
+        <!-- ================= ENTERPRISE TEACHER WORKSPACE ================= -->
+        <div class="profile-card">
+            <div class="avatar-box">
+                <img src="https://ui-avatars.com/api/?name={{ user.username }}&background=f7941e&color=fff&size=128" alt="Teacher">
+            </div>
+            <div class="profile-info">
+                <h2>{{ user.get_full_name|default:user.username }} (FACULTY)</h2>
+                <div class="profile-grid">
+                    <div><span>Role</span>Class Instructor</div>
+                    <div><span>Access Level</span>Gradebook & Attendance Manager</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="content-box">
+            <div class="box-title">Enter & Persist Student Scores</div>
+            <form method="POST">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="save_grade">
                 
-                <div class="form-group">
-                    <label>Username (First Name or ADMIN)</label>
-                    <input type="text" id="login-username" class="form-control" placeholder="e.g. ABDUL, MUNEEB, or ADMIN" required>
+                <label>Select Student</label>
+                <select name="student_id" class="form-control" required>
+                    {% for s in all_students %}
+                    <option value="{{ s.id }}">{{ s.user.username }} ({{ s.index_number }})</option>
+                    {% endfor %}
+                </select>
+
+                <label>Subject Code & Title</label>
+                <input type="text" name="subject_code" class="form-control" value="KG-ENG101" required>
+                <input type="text" name="subject_name" class="form-control" value="English Literacy & Phonics" required>
+
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px;">
+                    <div>
+                        <label>Class Score (Max 40)</label>
+                        <input type="number" name="class_score" class="form-control" max="40" step="0.1" required>
+                    </div>
+                    <div>
+                        <label>Exam Score (Max 60)</label>
+                        <input type="number" name="exam_score" class="form-control" max="60" step="0.1" required>
+                    </div>
                 </div>
 
-                <div class="form-group">
-                    <label>Password</label>
-                    <input type="password" id="login-password" class="form-control" placeholder="Default: 123456" required>
-                </div>
-
-                <button type="submit" class="btn-submit">🔐 Sign In to Secured Portal</button>
-                <div id="login-error" class="error-msg">Invalid credentials! Password default is 123456.</div>
+                <button type="submit" class="btn-submit">💾 Save Scores to Database</button>
             </form>
         </div>
-    </div>
 
-    <!-- FORCE PASSWORD CHANGE MODAL -->
-    <div id="pwd-modal" class="modal-bg">
-        <div class="modal-box">
-            <h3 style="color:var(--uds-green); margin-bottom:8px;">🔒 Change Default Password</h3>
-            <p style="font-size:13px; color:var(--text-muted); margin-bottom:20px;">You are logging in with default password (123456). Please set a new password to proceed.</p>
-            
-            <form onsubmit="saveNewPassword(event)">
-                <div class="form-group">
-                    <label>New Password</label>
-                    <input type="password" id="new-password" class="form-control" required minlength="6" placeholder="Enter new password">
+        {% elif role == 'admin' %}
+        <!-- ================= UDS-GRADE ADMIN PORTAL ================= -->
+        <div class="profile-card">
+            <div class="avatar-box">
+                <img src="https://ui-avatars.com/api/?name=Admin&background=1b1e21&color=fff&size=128" alt="Admin">
+            </div>
+            <div class="profile-info">
+                <h2>SYSTEM ADMINISTRATOR CONTROL PANEL</h2>
+                <div class="profile-grid">
+                    <div><span>System Control</span>Super User / Registrar</div>
+                    <div><span>DB Engine</span>PostgreSQL / Persistent Models</div>
                 </div>
-                <div class="form-group">
-                    <label>Confirm New Password</label>
-                    <input type="password" id="confirm-password" class="form-control" required minlength="6" placeholder="Confirm new password">
-                </div>
-                <button type="submit" class="btn-submit">Update Password & Continue</button>
+            </div>
+        </div>
+
+        <div class="content-box">
+            <div class="box-title">Global Portal Customization Engine</div>
+            <form method="POST">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="update_settings">
+                
+                <label>School Title</label>
+                <input type="text" name="school_name" class="form-control" value="{{ settings.school_name }}" required>
+
+                <label>Theme Primary Color</label>
+                <select name="theme_color" class="form-control">
+                    <option value="#006837" {% if settings.theme_color == "#006837" %}selected{% endif %}>UDS Forest Green (#006837)</option>
+                    <option value="#1e40af" {% if settings.theme_color == "#1e40af" %}selected{% endif %}>Deep Navy Blue (#1e40af)</option>
+                    <option value="#800020" {% if settings.theme_color == "#800020" %}selected{% endif %}>Burgundy Red (#800020)</option>
+                </select>
+
+                <label>Broadcast Banner Notice</label>
+                <input type="text" name="banner_notice" class="form-control" value="{{ settings.banner_notice }}" required>
+
+                <button type="submit" class="btn-submit">✨ Update Portal Settings Live</button>
             </form>
         </div>
-    </div>
 
-    <!-- MAIN PORTAL DASHBOARD -->
-    <div id="portal-dashboard">
-        
-        <div class="role-nav">
-            <div id="tab-student" class="role-tab" onclick="switchRole('student')">🎓 Student Dashboard</div>
-            <div id="tab-teacher" class="role-tab" onclick="switchRole('teacher')">👨‍🏫 Teacher Workspace</div>
-            <div id="tab-admin" class="role-tab" onclick="switchRole('admin')">🔐 Administrator Panel</div>
+        <div class="content-box">
+            <div class="box-title">Batch Student Fee Manager</div>
+            <form method="POST">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="add_fee">
+
+                <label>Target Student</label>
+                <select name="student_id" class="form-control" required>
+                    {% for s in all_students %}
+                    <option value="{{ s.id }}">{{ s.user.username }} ({{ s.index_number }})</option>
+                    {% endfor %}
+                </select>
+
+                <label>Fee Item Description</label>
+                <input type="text" name="description" class="form-control" placeholder="e.g. End of Term Exam Levy" required>
+
+                <label>Billed Amount (GHS)</label>
+                <input type="number" name="billed_amount" class="form-control" step="0.01" required>
+
+                <button type="submit" class="btn-submit">➕ Post Bill to Ledger</button>
+            </form>
         </div>
+        {% endif %}
 
-        <div class="portal-container">
-
-            <div class="banner-alert" id="system-banner">
-                <span id="banner-text">📢 Notice: Mid-Term Examination Results for Term II have been published. Check your Report Cards tab below.</span>
-                <span style="font-size:11px; opacity:0.8;">Verified System Broadcast</span>
-            </div>
-
-            <!-- ================= STUDENT / PARENT PANEL ================= -->
-            <div id="panel-student" class="portal-panel">
-                <div class="profile-card">
-                    <div class="avatar-box">
-                        <img id="student-passport" src="https://ui-avatars.com/api/?name=Abdul+Haqq&background=006837&color=fff&size=128" alt="Passport Picture">
-                    </div>
-                    <div class="profile-info" style="width:100%;">
-                        <h2 id="student-display-name">ABDUL HAQQ DRAMANI JAWULA</h2>
-                        <div class="profile-grid">
-                            <div><span>Admission No</span>250021602</div>
-                            <div><span>Class Level</span>Kindergarten 1</div>
-                            <div><span>Guardian / Parent</span>Dramani Jawula</div>
-                            <div><span>Academic Status</span><span class="status-badge">Active / Good Standing</span></div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="module-nav">
-                    <button class="module-btn active" onclick="switchSubTab('student', 'fees', this)">💰 School Fees Ledger</button>
-                    <button class="module-btn" onclick="switchSubTab('student', 'timetable', this)">📅 Class Timetable</button>
-                    <button class="module-btn" onclick="switchSubTab('student', 'course-reg', this)">📚 Course Registration</button>
-                    <button class="module-btn" onclick="switchSubTab('student', 'admission', this)">📜 Admission Letter</button>
-                    <button class="module-btn" onclick="switchSubTab('student', 'reports', this)">📄 Term Report Cards</button>
-                </div>
-
-                <div id="student-fees" class="sub-content content-box">
-                    <div class="box-title">School Fees Ledger & Statement</div>
-                    <table class="enterprise-table" id="student-fee-table">
-                        <thead>
-                            <tr>
-                                <th>Bill Item / Description</th>
-                                <th>Billed Amount (GHS)</th>
-                                <th>Amount Paid (GHS)</th>
-                                <th>Balance Due (GHS)</th>
-                                <th>Payment Status</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td>Tuition & Academic Fees</td>
-                                <td>850.00</td>
-                                <td>850.00</td>
-                                <td>0.00</td>
-                                <td><span class="status-badge">Cleared</span></td>
-                            </tr>
-                            <tr>
-                                <td>ICT & Enterprise Portal Fee</td>
-                                <td>150.00</td>
-                                <td>150.00</td>
-                                <td>0.00</td>
-                                <td><span class="status-badge">Cleared</span></td>
-                            </tr>
-                            <tr>
-                                <td>PTA & Facilities Levy</td>
-                                <td>100.00</td>
-                                <td>50.00</td>
-                                <td>50.00</td>
-                                <td><span class="status-badge status-pending">Partial</span></td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-
-                <div id="student-timetable" class="sub-content content-box" style="display:none;">
-                    <div class="box-title">Weekly Class Schedule</div>
-                    <table class="enterprise-table">
-                        <thead>
-                            <tr>
-                                <th>Day</th>
-                                <th>08:00 AM - 09:30 AM</th>
-                                <th>10:00 AM - 11:30 AM</th>
-                                <th>12:00 PM - 01:30 PM</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr><td>Monday</td><td>English Literacy</td><td>Numeracy & Math</td><td>Creative Arts</td></tr>
-                            <tr><td>Tuesday</td><td>Science Exploration</td><td>Phonics & Reading</td><td>Physical Ed</td></tr>
-                            <tr><td>Wednesday</td><td>Numeracy & Math</td><td>English Literacy</td><td>ICT Basics</td></tr>
-                            <tr><td>Thursday</td><td>Creative Arts</td><td>Environmental Studies</td><td>Storytelling</td></tr>
-                            <tr><td>Friday</td><td>Sports & Games</td><td>Group Activity</td><td>Weekly Review</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-
-                <div id="student-course-reg" class="sub-content content-box" style="display:none;">
-                    <div class="box-title">Registered Academic Courses (Term II)</div>
-                    <table class="enterprise-table">
-                        <thead>
-                            <tr>
-                                <th>Course Code</th>
-                                <th>Subject Title</th>
-                                <th>Instructor</th>
-                                <th>Status</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr><td>KG-ENG101</td><td>English Literacy & Phonics</td><td>Muneeb Bashiru</td><td><span class="status-badge">Confirmed</span></td></tr>
-                            <tr><td>KG-MTH101</td><td>Numeracy & Basic Counting</td><td>Muneeb Bashiru</td><td><span class="status-badge">Confirmed</span></td></tr>
-                            <tr><td>KG-ICT101</td><td>Basic ICT & Computer Literacy</td><td>Admin Instructor</td><td><span class="status-badge">Confirmed</span></td></tr>
-                            <tr><td>KG-ART101</td><td>Creative & Practical Arts</td><td>Muneeb Bashiru</td><td><span class="status-badge">Confirmed</span></td></tr>
-                        </tbody>
-                    </table>
-                </div>
-
-                <div id="student-admission" class="sub-content content-box" style="display:none;">
-                    <div class="box-title">Official Letter of Admission</div>
-                    <p><strong>Dear Parent / Guardian,</strong></p><br>
-                    <p>We are pleased to inform you that the applicant has been offered official admission into <strong>Kindergarten 1</strong> at Al-Wasilah School for the 2026/2027 Academic Session.</p><br>
-                    <p>Admission Number: <strong>250021602</strong><br>Date of Issuance: January 5, 2026</p>
-                </div>
-
-                <div id="student-reports" class="sub-content content-box" style="display:none;">
-                    <div class="box-title">Terminal Assessment Reports</div>
-                    <table class="enterprise-table">
-                        <thead>
-                            <tr>
-                                <th>Academic Year</th>
-                                <th>Term</th>
-                                <th>Class Rank</th>
-                                <th>Action</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td>2025/2026</td>
-                                <td>Term 3</td>
-                                <td>1st / 35</td>
-                                <td><a href="/report-card/1/" target="_blank" style="color:var(--uds-green); font-weight:700;">📄 Open Printable Report Card</a></td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- ================= TEACHER PANEL ================= -->
-            <div id="panel-teacher" class="portal-panel">
-                <div class="profile-card">
-                    <div class="avatar-box">
-                        <img id="teacher-passport" src="https://ui-avatars.com/api/?name=Muneeb+Bashiru&background=f7941e&color=fff&size=128" alt="Teacher Photo">
-                    </div>
-                    <div class="profile-info">
-                        <h2 id="teacher-display-name">MUNEEB BASHIRU (CLASS INSTRUCTOR)</h2>
-                        <div class="profile-grid">
-                            <div><span>Staff ID</span>T-2026-088</div>
-                            <div><span>Assigned Class</span>Kindergarten 1</div>
-                            <div><span>Department</span>Early Childhood Development</div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="module-nav">
-                    <button class="module-btn active" onclick="switchSubTab('teacher', 'grading', this)">📝 Grade & Score Entry</button>
-                    <button class="module-btn" onclick="switchSubTab('teacher', 'attendance', this)">📋 Mark Attendance</button>
-                    <button class="module-btn" onclick="switchSubTab('teacher', 'resources', this)">📤 Upload Lesson Plans</button>
-                </div>
-
-                <div id="teacher-grading" class="sub-content content-box">
-                    <div class="box-title">Class Gradebook Entry (KG 1)</div>
-                    <table class="enterprise-table">
-                        <thead>
-                            <tr>
-                                <th>Student ID</th>
-                                <th>Student Name</th>
-                                <th>Class Assessment (40%)</th>
-                                <th>Exam Score (60%)</th>
-                                <th>Total Mark</th>
-                                <th>Grade</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td>250021602</td>
-                                <td>ABDUL HAQQ DRAMANI JAWULA</td>
-                                <td><input type="number" class="input-sm" id="ca-1" value="38" onchange="calcGrade(1)"></td>
-                                <td><input type="number" class="input-sm" id="ex-1" value="55" onchange="calcGrade(1)"></td>
-                                <td><strong id="tot-1">93</strong></td>
-                                <td><span class="status-badge" id="grd-1">A+</span></td>
-                            </tr>
-                            <tr>
-                                <td>2500120</td>
-                                <td>MUNEEB BASHIRU</td>
-                                <td><input type="number" class="input-sm" id="ca-2" value="34" onchange="calcGrade(2)"></td>
-                                <td><input type="number" class="input-sm" id="ex-2" value="48" onchange="calcGrade(2)"></td>
-                                <td><strong id="tot-2">82</strong></td>
-                                <td><span class="status-badge" id="grd-2">A</span></td>
-                            </tr>
-                        </tbody>
-                    </table>
-                    <br>
-                    <button onclick="alert('Student grades updated and saved successfully!')" class="btn-submit" style="width:200px;">💾 Save Class Grades</button>
-                </div>
-
-                <div id="teacher-attendance" class="sub-content content-box" style="display:none;">
-                    <div class="box-title">Daily Attendance Register</div>
-                    <table class="enterprise-table">
-                        <thead>
-                            <tr>
-                                <th>Student ID</th>
-                                <th>Student Name</th>
-                                <th>Status Today</th>
-                                <th>Action</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td>250021602</td>
-                                <td>ABDUL HAQQ DRAMANI JAWULA</td>
-                                <td><span class="status-badge" id="att-1">Present</span></td>
-                                <td><button onclick="toggleAttendance(1)" style="padding:4px 10px; cursor:pointer;">Toggle Attendance</button></td>
-                            </tr>
-                            <tr>
-                                <td>2500120</td>
-                                <td>MUNEEB BASHIRU</td>
-                                <td><span class="status-badge" id="att-2">Present</span></td>
-                                <td><button onclick="toggleAttendance(2)" style="padding:4px 10px; cursor:pointer;">Toggle Attendance</button></td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-
-                <div id="teacher-resources" class="sub-content content-box" style="display:none;">
-                    <div class="box-title">Upload Lesson Plan / Assignment</div>
-                    <form onsubmit="event.preventDefault(); alert('Lesson resource published for students!');">
-                        <div class="form-group">
-                            <label>Title</label>
-                            <input type="text" class="form-control" placeholder="e.g. Term II Phonics Reading Worksheet" required>
-                        </div>
-                        <div class="form-group">
-                            <label>Target Class</label>
-                            <select class="form-control"><option>Kindergarten 1</option><option>Primary 1</option></select>
-                        </div>
-                        <div class="form-group">
-                            <label>File Attachment</label>
-                            <input type="file" class="form-control">
-                        </div>
-                        <button type="submit" class="btn-submit" style="width:200px;">📤 Publish Resource</button>
-                    </form>
-                </div>
-            </div>
-
-            <!-- ================= ADMIN CONTROL PANEL ================= -->
-            <div id="panel-admin" class="portal-panel">
-                <div class="profile-card">
-                    <div class="avatar-box">
-                        <img src="https://ui-avatars.com/api/?name=Admin+Control&background=1b1e21&color=fff&size=128" alt="Admin Photo">
-                    </div>
-                    <div class="profile-info">
-                        <h2>SYSTEM ADMINISTRATOR CONTROL PANEL</h2>
-                        <div class="profile-grid">
-                            <div><span>System Level</span>Super User / Registrar</div>
-                            <div><span>Branding Status</span>Live Customization Active</div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="module-nav">
-                    <button class="module-btn active" onclick="switchSubTab('admin', 'branding', this)">🎨 Interface & Branding</button>
-                    <button class="module-btn" onclick="switchSubTab('admin', 'fees-mgr', this)">💳 Fee Ledger Manager</button>
-                    <button class="module-btn" onclick="switchSubTab('admin', 'announcements', this)">📢 Broadcast Announcements</button>
-                    <button class="module-btn" onclick="switchSubTab('admin', 'backend', this)">🔐 Django Backend</button>
-                </div>
-
-                <div id="admin-branding" class="sub-content content-box">
-                    <div class="box-title">Live Portal Customization Engine</div>
-                    <form onsubmit="applyAdminBranding(event)">
-                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px;">
-                            <div class="form-group">
-                                <label>School Name Header Title</label>
-                                <input type="text" id="cfg-school-name" class="form-control" value="Al-Wasilah School Portal">
-                            </div>
-                            <div class="form-group">
-                                <label>Sub-Header Motto / Tagline</label>
-                                <input type="text" id="cfg-motto" class="form-control" value="Knowledge for Service • Enterprise Academic Portal">
-                            </div>
-                        </div>
-
-                        <div class="form-group">
-                            <label>School Logo Image URL</label>
-                            <input type="text" id="cfg-logo-url" class="form-control" value="/media/branding/WhatsApp_Image_2026-01-02_at_6.23.10_AM-removebg-preview-removebg-preview.png">
-                        </div>
-
-                        <div class="form-group">
-                            <label>Portal Primary Theme Color</label>
-                            <select id="cfg-theme-color" class="form-control" onchange="changeThemeColor(this.value)">
-                                <option value="#006837">UDS Forest Green (#006837)</option>
-                                <option value="#1e40af">Deep Navy Blue (#1e40af)</option>
-                                <option value="#800020">Burgundy Red (#800020)</option>
-                                <option value="#0f766e">Teal (#0f766e)</option>
-                            </select>
-                        </div>
-
-                        <button type="submit" class="btn-submit" style="width:250px;">✨ Update Portal Interface</button>
-                    </form>
-                </div>
-
-                <div id="admin-fees-mgr" class="sub-content content-box" style="display:none;">
-                    <div class="box-title">Add Fee Item to Student Ledgers</div>
-                    <form onsubmit="addFeeItem(event)">
-                        <div style="display:grid; grid-template-columns: 2fr 1fr; gap:15px;">
-                            <div class="form-group">
-                                <label>Fee Item Description</label>
-                                <input type="text" id="new-fee-desc" class="form-control" placeholder="e.g. End of Term Exam Levy" required>
-                            </div>
-                            <div class="form-group">
-                                <label>Amount (GHS)</label>
-                                <input type="number" id="new-fee-amt" class="form-control" placeholder="100.00" required>
-                            </div>
-                        </div>
-                        <button type="submit" class="btn-submit" style="width:220px;">➕ Add to Fee Ledger</button>
-                    </form>
-                </div>
-
-                <div id="admin-announcements" class="sub-content content-box" style="display:none;">
-                    <div class="box-title">Broadcast Portal System Banner</div>
-                    <form onsubmit="updateBanner(event)">
-                        <div class="form-group">
-                            <label>Announcement Message</label>
-                            <input type="text" id="new-banner-text" class="form-control" value="📢 Notice: Mid-Term Examination Results for Term II have been published." required>
-                        </div>
-                        <button type="submit" class="btn-submit" style="width:220px;">📢 Broadcast Notice</button>
-                    </form>
-                </div>
-
-                <div id="admin-backend" class="sub-content content-box" style="display:none;">
-                    <div class="box-title">Django Database Operations</div>
-                    <p style="margin-bottom:15px;">Access low-level models, user roles, database backups, and admin logs.</p>
-                    <a href="/admin/" target="_blank" class="btn-submit" style="display:inline-block; width:auto; padding:10px 20px; text-decoration:none;">🔐 Open Django Admin Panel</a>
-                </div>
-            </div>
-
-        </div>
     </div>
 
     <script>
-        let currentAuthenticatedRole = null;
-        let userPasswords = { 'student': '123456', 'teacher': '123456', 'admin': '123456' };
-
-        function handleLogin(e) {
-            e.preventDefault();
-            const role = document.getElementById('login-role').value;
-            const user = document.getElementById('login-username').value.trim().toUpperCase();
-            const pass = document.getElementById('login-password').value;
-            const err = document.getElementById('login-error');
-
-            if (role === 'admin' && user !== 'ADMIN') {
-                err.innerText = "Admin username must be ADMIN";
-                err.style.display = 'block';
-                return;
-            }
-
-            if (pass === userPasswords[role]) {
-                err.style.display = 'none';
-                if (pass === '123456') {
-                    currentAuthenticatedRole = role;
-                    document.getElementById('pwd-modal').style.display = 'flex';
-                } else {
-                    grantAccess(role, user);
-                }
-            } else {
-                err.innerText = "Invalid Password! Default password is 123456";
-                err.style.display = 'block';
-            }
-        }
-
-        function saveNewPassword(e) {
-            e.preventDefault();
-            const p1 = document.getElementById('new-password').value;
-            const p2 = document.getElementById('confirm-password').value;
-            if (p1 !== p2) { alert("Passwords do not match!"); return; }
-            userPasswords[currentAuthenticatedRole] = p1;
-            document.getElementById('pwd-modal').style.display = 'none';
-            grantAccess(currentAuthenticatedRole, document.getElementById('login-username').value.toUpperCase());
-        }
-
-        function grantAccess(role, username) {
-            currentAuthenticatedRole = role;
-
-            document.getElementById('login-overlay').style.display = 'none';
-            document.getElementById('portal-dashboard').style.display = 'block';
-            document.getElementById('header-actions').style.display = 'flex';
-            document.getElementById('active-user-badge').innerText = `Logged in as: ${username} (${role.toUpperCase()})`;
-
-            if (role === 'student' && username) {
-                document.getElementById('student-display-name').innerText = username + " DRAMANI JAWULA";
-            } else if (role === 'teacher' && username) {
-                document.getElementById('teacher-display-name').innerText = username + " BASHIRU (CLASS INSTRUCTOR)";
-            }
-
-            // Hide all tabs and panels first
-            document.querySelectorAll('.role-tab').forEach(t => t.style.display = 'none');
-            document.querySelectorAll('.portal-panel').forEach(p => p.classList.remove('active'));
-
-            // Show ONLY the authorized tab & panel
-            const activeTab = document.getElementById('tab-' + role);
-            const activePanel = document.getElementById('panel-' + role);
-            if (activeTab) { activeTab.style.display = 'block'; activeTab.classList.add('active'); }
-            if (activePanel) { activePanel.classList.add('active'); }
-        }
-
-        function logout() {
-            currentAuthenticatedRole = null;
-            document.getElementById('portal-dashboard').style.display = 'none';
-            document.getElementById('header-actions').style.display = 'none';
-            document.getElementById('login-overlay').style.display = 'flex';
-            document.getElementById('login-password').value = '';
-        }
-
-        function switchSubTab(role, tabName, btn) {
-            const container = document.getElementById('panel-' + role);
-            container.querySelectorAll('.module-btn').forEach(b => b.classList.remove('active'));
-            container.querySelectorAll('.sub-content').forEach(c => c.style.display = 'none');
-
+        function switchTab(tabId, btn) {
+            document.querySelectorAll('.sub-tab').forEach(t => t.style.display = 'none');
+            document.querySelectorAll('.module-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('tab-' + tabId).style.display = 'block';
             btn.classList.add('active');
-            document.getElementById(role + '-' + tabName).style.display = 'block';
-        }
-
-        function calcGrade(rowId) {
-            const ca = parseFloat(document.getElementById('ca-' + rowId).value) || 0;
-            const ex = parseFloat(document.getElementById('ex-' + rowId).value) || 0;
-            const tot = ca + ex;
-            document.getElementById('tot-' + rowId).innerText = tot;
-            let grd = 'F';
-            if (tot >= 80) grd = 'A+';
-            else if (tot >= 70) grd = 'A';
-            else if (tot >= 60) grd = 'B';
-            else if (tot >= 50) grd = 'C';
-            document.getElementById('grd-' + rowId).innerText = grd;
-        }
-
-        function toggleAttendance(id) {
-            const el = document.getElementById('att-' + id);
-            if (el.innerText === 'Present') {
-                el.innerText = 'Absent';
-                el.className = 'status-badge status-pending';
-            } else {
-                el.innerText = 'Present';
-                el.className = 'status-badge';
-            }
-        }
-
-        function changeThemeColor(color) {
-            document.documentElement.style.setProperty('--uds-green', color);
-        }
-
-        function applyAdminBranding(e) {
-            e.preventDefault();
-            document.getElementById('header-title-text').innerText = document.getElementById('cfg-school-name').value;
-            document.getElementById('header-subtitle-text').innerText = document.getElementById('cfg-motto').value;
-            document.getElementById('header-logo-img').src = document.getElementById('cfg-logo-url').value;
-            alert('Portal branding updated live!');
-        }
-
-        function addFeeItem(e) {
-            e.preventDefault();
-            const desc = document.getElementById('new-fee-desc').value;
-            const amt = parseFloat(document.getElementById('new-fee-amt').value).toFixed(2);
-            const tbody = document.querySelector('#student-fee-table tbody');
-            const tr = document.createElement('tr');
-            tr.innerHTML = `<td>${desc}</td><td>${amt}</td><td>0.00</td><td>${amt}</td><td><span class="status-badge status-pending">Unpaid</span></td>`;
-            tbody.appendChild(tr);
-            alert('Fee item added to Student Ledgers!');
-        }
-
-        function updateBanner(e) {
-            e.preventDefault();
-            document.getElementById('banner-text').innerText = document.getElementById('new-banner-text').value;
-            alert('System broadcast updated!');
         }
     </script>
 </body>
 </html>"""
-    return HttpResponse(html_content, content_type="text/html")
+
+# ==============================================================================
+# 3. CONTROLLER VIEWS (ROUTING & BUSINESS LOGIC)
+# ==============================================================================
+
+@login_required
+def home_portal(request):
+    user = request.user
+    profile, _ = UserProfile.objects.get_or_create(user=user)
+    role = profile.role
+
+    # Initialize global settings if missing
+    settings, _ = SchoolSetting.objects.get_or_create(id=1)
+
+    # Handle Form Posts (Admin Updates, Fee Entries, Teacher Grading)
+    if request.method == 'POST':
+        action = request.POST.get('action')
+
+        if action == 'update_settings' and (role == 'admin' or user.is_superuser):
+            settings.school_name = request.POST.get('school_name')
+            settings.theme_color = request.POST.get('theme_color')
+            settings.banner_notice = request.POST.get('banner_notice')
+            settings.save()
+
+        elif action == 'add_fee' and (role == 'admin' or user.is_superuser):
+            student_id = request.POST.get('student_id')
+            student = StudentProfile.objects.get(id=student_id)
+            FeeLedger.objects.create(
+                student=student,
+                description=request.POST.get('description'),
+                billed_amount=request.POST.get('billed_amount')
+            )
+
+        elif action == 'save_grade' and role in ['teacher', 'admin']:
+            student_id = request.POST.get('student_id')
+            student = StudentProfile.objects.get(id=student_id)
+            GradeRecord.objects.create(
+                student=student,
+                subject_code=request.POST.get('subject_code'),
+                subject_name=request.POST.get('subject_name'),
+                class_score=float(request.POST.get('class_score', 0)),
+                exam_score=float(request.POST.get('exam_score', 0))
+            )
+
+        return redirect('/')
+
+    # Fetch Data Specific to Current Logged In Account
+    student_obj = None
+    fees = []
+    grades = []
+    all_students = []
+
+    if role == 'student':
+        student_obj = getattr(user, 'student_record', None)
+        if not student_obj and user.children.exists():
+            student_obj = user.children.first()
+        
+        if student_obj:
+            # STRICT ISOLATION: Filter ONLY for this student ID
+            fees = FeeLedger.objects.filter(student=student_obj)
+            grades = GradeRecord.objects.filter(student=student_obj)
+
+    elif role in ['teacher', 'admin'] or user.is_superuser:
+        all_students = StudentProfile.objects.all()
+
+    # Render unified inline template
+    context = Context({
+        'user': user,
+        'role': role if not user.is_superuser else 'admin',
+        'settings': settings,
+        'student': student_obj,
+        'fees': fees,
+        'grades': grades,
+        'all_students': all_students,
+    })
+
+    t = Template(SINGLE_PAGE_TEMPLATE)
+    return HttpResponse(t.render(context))
+
 
 def student_report_card(request, student_id=None):
     return HttpResponse("<h2>Report Card Details</h2><p>Student report card generator ready.</p>", content_type="text/html")
