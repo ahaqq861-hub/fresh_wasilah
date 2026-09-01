@@ -1,8 +1,6 @@
 from django.shortcuts import render
 from django.http import HttpResponse
 
-# If you are serving HTML directly from a string in python, 
-# content_type="text/html" forces the browser to display the website visually.
 def home(request):
     html_content = """<!DOCTYPE html>
 <html lang="en">
