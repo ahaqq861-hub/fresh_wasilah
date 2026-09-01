@@ -7,7 +7,7 @@ from django.contrib.auth.decorators import login_required
 from django.db import models
 
 # ==============================================================================
-# 1. DATABASE MODELS (PERSISTENCE LAYER)
+# 1. DATABASE MODELS (PERSISTENT DATA LAYER - SAVES ACROSS LOGINS & DEVICES)
 # ==============================================================================
 
 ROLE_CHOICES = (
@@ -26,7 +26,7 @@ class UserProfile(models.Model):
 class SchoolSetting(models.Model):
     school_name = models.CharField(max_length=200, default="Al-Wasilah School Portal")
     tagline = models.CharField(max_length=200, default="Knowledge for Service • Enterprise Academic Portal")
-    logo_url = models.CharField(max_length=500, default="/media/branding/WhatsApp_Image_2026-01-02_at_6.23.10_AM-removebg-preview-removebg-preview.png")
+    logo_url = models.CharField(max_length=500, default="/media/branding/logo.png")
     theme_color = models.CharField(max_length=10, default="#006837")
     current_session = models.CharField(max_length=100, default="2026/2027 ACADEMIC YEAR - TERM II")
     banner_notice = models.TextField(default="📢 Notice: Mid-Term Examination Results for Term II have been published.")
@@ -65,8 +65,8 @@ class GradeRecord(models.Model):
     student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, related_name='grades')
     subject_code = models.CharField(max_length=20)
     subject_name = models.CharField(max_length=100)
-    class_score = models.FloatField(default=0.0)  # Out of 40
-    exam_score = models.FloatField(default=0.0)   # Out of 60
+    class_score = models.FloatField(default=0.0)  # Continuous Assessment out of 40
+    exam_score = models.FloatField(default=0.0)   # Examination score out of 60
     term = models.CharField(max_length=50, default="Term II")
 
     class Meta:
@@ -87,7 +87,7 @@ class GradeRecord(models.Model):
 
 
 # ==============================================================================
-# 2. INLINE TEMPLATE (HTML, CSS & JAVASCRIPT)
+# 2. INLINE TEMPLATE (ENTERPRISE UDS THEME + FULL USER INTERFACES)
 # ==============================================================================
 
 SINGLE_PAGE_TEMPLATE = """<!DOCTYPE html>
@@ -120,7 +120,7 @@ SINGLE_PAGE_TEMPLATE = """<!DOCTYPE html>
         .brand-text h1 { font-size: 22px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
         .brand-text p { font-size: 13px; opacity: 0.9; }
 
-        .btn-top { background-color: white; color: var(--uds-green); padding: 8px 16px; border-radius: 4px; font-weight: 700; font-size: 13px; text-decoration: none; border: none; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+        .btn-top { background-color: white; color: var(--uds-green); padding: 8px 16px; border-radius: 4px; font-weight: 700; font-size: 13px; text-decoration: none; border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
         .btn-top:hover { background-color: #e2e8f0; }
 
         .portal-container { max-width: 1240px; margin: 25px auto; padding: 0 20px; }
@@ -178,7 +178,10 @@ SINGLE_PAGE_TEMPLATE = """<!DOCTYPE html>
                 Logged in as: {{ user.username|upper }} ({{ role|upper }})
             </span>
             <button onclick="window.print()" class="btn-top">🖨️ Print Document</button>
-            <a href="/logout/" class="btn-top" style="background:#dc2626; color:white; text-decoration:none;">🔒 Logout</a>
+            <form action="/logout/" method="POST" style="display:inline;">
+                <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+                <button type="submit" class="btn-top" style="background:#dc2626; color:white;">🔒 Logout</button>
+            </form>
         </div>
     </header>
 
@@ -201,7 +204,7 @@ SINGLE_PAGE_TEMPLATE = """<!DOCTYPE html>
                     <div><span>Index / Admission No</span>{{ student.index_number }}</div>
                     <div><span>Class Assigned</span>{{ student.class_level }}</div>
                     <div><span>Parent / Guardian</span>{{ student.parent_name }}</div>
-                    <div><span>Portal Isolation</span><span class="status-badge">Strict Student Account</span></div>
+                    <div><span>Portal Isolation</span><span class="status-badge">Strict Isolated Account</span></div>
                 </div>
             </div>
         </div>
@@ -239,7 +242,7 @@ SINGLE_PAGE_TEMPLATE = """<!DOCTYPE html>
                         </td>
                     </tr>
                     {% empty %}
-                    <tr><td colspan="5">No fee records found for your account.</td></tr>
+                    <tr><td colspan="5">No fee records linked to this student account.</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
@@ -293,7 +296,7 @@ SINGLE_PAGE_TEMPLATE = """<!DOCTYPE html>
         <div class="content-box">
             <div class="box-title">Enter & Persist Student Scores</div>
             <form method="POST">
-                {% csrf_token %}
+                <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
                 <input type="hidden" name="action" value="save_grade">
                 
                 <label>Select Student</label>
@@ -340,7 +343,7 @@ SINGLE_PAGE_TEMPLATE = """<!DOCTYPE html>
         <div class="content-box">
             <div class="box-title">Global Portal Customization Engine</div>
             <form method="POST">
-                {% csrf_token %}
+                <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
                 <input type="hidden" name="action" value="update_settings">
                 
                 <label>School Title</label>
@@ -363,7 +366,7 @@ SINGLE_PAGE_TEMPLATE = """<!DOCTYPE html>
         <div class="content-box">
             <div class="box-title">Batch Student Fee Manager</div>
             <form method="POST">
-                {% csrf_token %}
+                <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
                 <input type="hidden" name="action" value="add_fee">
 
                 <label>Target Student</label>
@@ -398,7 +401,7 @@ SINGLE_PAGE_TEMPLATE = """<!DOCTYPE html>
 </html>"""
 
 # ==============================================================================
-# 3. CONTROLLER VIEWS (ROUTING & BUSINESS LOGIC)
+# 3. CONTROLLER VIEWS (ROUTING, ISOLATION & CSRF SECURITY)
 # ==============================================================================
 
 @login_required
@@ -407,10 +410,14 @@ def home_portal(request):
     profile, _ = UserProfile.objects.get_or_create(user=user)
     role = profile.role
 
-    # Initialize global settings if missing
+    # Default superusers to admin role if missing profile
+    if user.is_superuser:
+        role = 'admin'
+
+    # Fetch global settings or create defaults
     settings, _ = SchoolSetting.objects.get_or_create(id=1)
 
-    # Handle Form Posts (Admin Updates, Fee Entries, Teacher Grading)
+    # Handle Database Updates (Admin branding, Fee Entries, Teacher Grading)
     if request.method == 'POST':
         action = request.POST.get('action')
 
@@ -442,7 +449,7 @@ def home_portal(request):
 
         return redirect('/')
 
-    # Fetch Data Specific to Current Logged In Account
+    # Fetch Data Isolated to Logged-in Account
     student_obj = None
     fees = []
     grades = []
@@ -454,27 +461,29 @@ def home_portal(request):
             student_obj = user.children.first()
         
         if student_obj:
-            # STRICT ISOLATION: Filter ONLY for this student ID
+            # STRICT ISOLATION: Query ONLY fees and grades for THIS student ID
             fees = FeeLedger.objects.filter(student=student_obj)
             grades = GradeRecord.objects.filter(student=student_obj)
 
     elif role in ['teacher', 'admin'] or user.is_superuser:
         all_students = StudentProfile.objects.all()
 
-    # Render unified inline template
+    # Render unified inline template with request context for CSRF token support
+    t = Template(SINGLE_PAGE_TEMPLATE)
     context = Context({
+        'request': request,
         'user': user,
-        'role': role if not user.is_superuser else 'admin',
+        'role': role,
         'settings': settings,
         'student': student_obj,
         'fees': fees,
         'grades': grades,
         'all_students': all_students,
+        'csrf_token': request.META.get('CSRF_COOKIE', '')
     })
 
-    t = Template(SINGLE_PAGE_TEMPLATE)
     return HttpResponse(t.render(context))
 
 
 def student_report_card(request, student_id=None):
-    return HttpResponse("<h2>Report Card Details</h2><p>Student report card generator ready.</p>", content_type="text/html")
+    return HttpResponse("<h2>Report Card Generator</h2><p>Printable report card module ready.</p>", content_type="text/html")
