@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Report Card - {{ student.first_name }} {{ student.last_name }}</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; color: #333; }
+        .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 20px; }
+        .logo { max-height: 80px; }
+        .school-title { font-size: 26px; font-weight: bold; margin: 5px 0; }
+        .motto { font-style: italic; color: #555; }
+        .student-info { margin: 25px 0; display: flex; justify-content: space-between; font-size: 16px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+        th { background-color: #f4f4f4; }
+        .summary { margin-top: 20px; text-align: right; font-size: 16px; font-weight: bold; }
+        .signature-section { margin-top: 50px; display: flex; justify-content: space-between; }
+        .sig-box { text-align: center; }
+        .sig-image { max-height: 50px; display: block; margin: 0 auto 5px auto; }
+        @media print {
+            .no-print { display: none; }
+            body { margin: 0; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="no-print" style="margin-bottom: 20px; text-align: right;">
+        <button onclick="window.print()" style="padding: 10px 20px; background: #007bff; color: white; border: none; cursor: pointer; border-radius: 4px;">🖨️ Print Report Card</button>
+    </div>
+
+    <div class="header">
+        {% if branding and branding.logo_header %}
+            <img src="{{ branding.logo_header.url }}" class="logo" alt="Logo">
+        {% endif %}
+        <div class="school-title">{{ branding.school_name|default:"Al-Wasilah School" }}</div>
+        <div class="motto">"{{ branding.school_motto|default:"Knowledge for Service" }}"</div>
+        <h3>OFFICIAL STUDENT PERFORMANCE REPORT</h3>
+    </div>
+
+    <div class="student-info">
+        <div>
+            <strong>Student Name:</strong> {{ student.first_name }} {{ student.last_name }}<br>
+            <strong>Admission No:</strong> {{ student.admission_number }}
+        </div>
+        <div>
+            <strong>Class:</strong> {{ student.class_section.class_name }}<br>
+            <strong>Academic Year:</strong> {{ student.class_section.academic_year }}
+        </div>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Subject</th>
+                <th>CA Score</th>
+                <th>Exam Score</th>
+                <th>Total Score</th>
+                <th>Grade</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in results %}
+            <tr>
+                <td>{{ item.subject_name }}</td>
+                <td>{{ item.ca_score }}</td>
+                <td>{{ item.exam_score }}</td>
+                <td><strong>{{ item.total_score }}</strong></td>
+                <td><strong>{{ item.grade }}</strong></td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="5" style="text-align: center;">No subject scores recorded yet.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="summary">
+        <p>Grand Total: {{ grand_total }}</p>
+        <p>Average Score: {{ average_score }}%</p>
+    </div>
+
+    <div class="signature-section">
+        <div class="sig-box">
+            {% if student.class_section.class_teacher and student.class_section.class_teacher.signature_image %}
+                <img src="{{ student.class_section.class_teacher.signature_image.url }}" class="sig-image" alt="Signature">
+            {% endif %}
+            ______________________<br>
+            <strong>Class Teacher</strong><br>
+            {{ student.class_section.class_teacher.full_name|default:"Assign Teacher" }}
+        </div>
+        <div class="sig-box">
+            <br>
+            ______________________<br>
+            <strong>Principal's Signature</strong>
+        </div>
+    </div>
+
+</body>
+</html>
